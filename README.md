@@ -28,7 +28,12 @@ This discord bot use steam news api to keep your discord channel updated with ga
  
 ### Use
 
-You can use [SteamDb](https://steamdb.info/) to check for Steam ids. And then say this on your *news channel*:
+Run the bot with:
+```
+py NewsBot.py
+```
+
+You can use [SteamDb](https://steamdb.info/) to find Steam ids. And then say this on your *news channel*:
 ```
 !register <gameName> <steamId>
 ```
