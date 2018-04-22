@@ -6,14 +6,16 @@ import asyncio
 
 import datetime
 
+from threading import Thread, Lock
+
 from DataManager import DataManager
 from SteamNewsFinder import SteamNewsFinder
 
 
 
 # Constatnts
-token = "TOKEN_ID"
-newsChannel="channel_id"
+token = "BOT TOKEN"
+newsChannel="channel id"
 
 bot_prefix="!"
 fileName="gamenews.txt"	# File that will store all the news info.
@@ -21,8 +23,10 @@ frequency=600			# The frequency with which the bot checks news
 
 
 # Variables
+newsDataMutex = Lock()
 newsData 	= {}
 dataManager = None
+embedNews	= []	# Queue with news waiting to be posted in the news channel
 
 
 bot = commands.Bot(command_prefix=bot_prefix)
@@ -39,6 +43,7 @@ async def on_ready():
 		newsData = dataManager.loadData()
 		print("Ready!")
 		bot.loop.create_task(backgroundNewsSeeking())
+		bot.loop.create_task(backgroundNewsSender())
 
 
 ################ COMMANDS #######################
@@ -72,33 +77,45 @@ async def register(name, id):
 
 ###############   TASKS   ########################
 
-async def getNews(gameName):
+def getNews(gameName):
+	"""Check for new news, add them to embedNews, and update newsData. Multi-threading."""
 	global newsData
 
 	game = newsData[gameName]
-	print(game['name'])
 	news = SteamNewsFinder.getGameNews(game['id'])
 	counter = 0
 	for newsItem in news:
 		newsItemDict = newsItem.__dict__
 		if (newsItemDict not in game['news']):
 			counter+=1
-			await bot.send_message(bot.get_channel(newsChannel), embed=newsItem.getEmbed(gameName))
+			embedNews.append(newsItem.getEmbed(gameName))
 			game['news'].append(newsItemDict)
-	print("Done! " +  str(counter) + " news")
+	newsDataMutex.acquire()
+	try:
+		dataManager.saveData(newsData)
+	finally:
+		newsDataMutex.release()
+	print(gameName + " Done! " +  str(counter) + " news")
 
 async def backgroundNewsSeeking():
-	"""This task is supposed to be run in the background. It will update the news data and post new news in the news channel"""
+	"""This task is supposed to be run in the background. It will update the news data"""
 	global newsData
 
-	await asyncio.sleep(10) # 10 seconds delay
+	await asyncio.sleep(5) # 10 seconds delay
 	await bot.wait_until_ready()
 	while (1):
-		print("Seeking for news ... -----------(" + str(datetime.datetime.now().time()) + ")")
+		print("\nSeeking for news ... -----------(" + str(datetime.datetime.now().time()) + ")")
 		for game in newsData:
-			await getNews(game)
-		dataManager.saveData(newsData)
-		print("News done!          -----------")
-		await asyncio.sleep(frequency) 
+			Thread(target = getNews, args = (game,)).start()
+		await asyncio.sleep(600)
+
+async def backgroundNewsSender():
+	"""This task is supposed to be run in the background. Check for news and posts it in the news channel"""
+	global embedNews
+	while(1):
+		if embedNews:
+			for embed in embedNews:
+				await bot.send_message(bot.get_channel(newsChannel), embed=embedNews.pop())
+		await asyncio.sleep(5)
 
 bot.run(token)
