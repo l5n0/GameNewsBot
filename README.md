@@ -44,3 +44,15 @@ You can use [SteamDb](https://steamdb.info/) to find Steam ids. And then say thi
 ```
 Bot should response the following:
 *Game with id '730' and name 'CounterStrikeGO' has been registered. News will arrive in about 10 minutes.*
+
+- - -
+[![twitter][1.1]][1]     [![github][2.2]][2]     [![linkedin][3.3]][3]
+
+[1]:https://twitter.com/b_munizcastro
+[1.1]:https://cdn4.iconfinder.com/data/icons/iconsimple-logotypes/512/twitter-24.png
+
+[2]:https://github.com/bramucas
+[2.2]:https://cdn4.iconfinder.com/data/icons/iconsimple-logotypes/512/github-24.png
+
+[3]:https://www.linkedin.com/in/brais-mu%C3%B1iz-castro-93279115a/
+[3.3]:https://cdn4.iconfinder.com/data/icons/iconsimple-logotypes/512/linkedin-24.png
