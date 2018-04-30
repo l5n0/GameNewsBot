@@ -8,14 +8,14 @@ import datetime
 
 from threading import Thread, Lock
 
-from DataManager import DataManager
+from DataManager     import DataManager
 from SteamNewsFinder import SteamNewsFinder
-
+from SearchGames     import searchGames
 
 
 # Constatnts
-token = "BOT TOKEN"
-newsChannel="channel id"
+token = "BOT_TOKEN"
+newsChannel="CHANNEL_ID"
 
 bot_prefix="!"
 fileName="gamenews.txt"	# File that will store all the news info.
@@ -27,7 +27,7 @@ newsDataMutex = Lock()
 newsData 	= {}
 dataManager = None
 embedNews	= []	# Queue with news waiting to be posted in the news channel
-
+lastSearch  = []
 
 bot = commands.Bot(command_prefix=bot_prefix)
 
@@ -45,12 +45,28 @@ async def on_ready():
 		bot.loop.create_task(backgroundNewsSeeking())
 		bot.loop.create_task(backgroundNewsSender())
 
+################ REAL COMMANDS #######################
 
-################ COMMANDS #######################
+@bot.command(pass_context=False)
+async def search(searchToken):
+	global lastSearch
+
+	result = await searchGames(searchToken,1)
+
+	embed = discord.Embed(title="Resultados de la búsqueda '" + searchToken + "'")
+
+	i = 0
+	for r in result:
+		embed.add_field(name= str(i) + ". " + r['name'], value="[Página de steam](" + r['url'] + ")")
+		i = i+1
+
+	lastSearch = result
+
+	await bot.send_message(bot.get_channel(newsChannel), embed=embed)
 
 
-@bot.command(pass_context=True)
-async def state(ctx):
+@bot.command(pass_context=False)
+async def state():
 	"""Print games that are currently in the list and their steam ids"""
 	global newsData
 	message = "Games on the list:\n"
@@ -61,18 +77,41 @@ async def state(ctx):
 	await bot.send_message(bot.get_channel(newsChannel), message)
 
 @bot.command(pass_context=False)
-async def register(name, id):
-	"""It allows user to register new games on the list"""
+async def register(number):
 	global newsData
+	global lastSearch
+
+	if (lastSearch == []):
+		await bot.send_message(bot.get_channel(newsChannel), "Search something first! Don't use spaces on your search. There is an example:\n !search Hollow_Knight")
+		return
+
+	if (int(number) < 0 ):
+		await bot.send_message(bot.get_channel(newsChannel), "Please enter a valid search number.")
+		return
+
+	try:
+		name     = lastSearch[int(number)]['name']
+		gameId   = lastSearch[int(number)]['id']
+	except IndexError:
+		await bot.send_message(bot.get_channel(newsChannel), "Please enter a valid search number.")
+		return
 
 	newsData[name] = {}
 	newsData[name]['name'] = name
-	newsData[name]['id']   = id
+	newsData[name]['id']   = gameId
 	newsData[name]['news'] = []
 
-	message = "Game with id '" + id + "' and name '" + name + "' has been registered. News will arrive in about 10 minutes."
+	newsDataMutex.acquire()
+	try:
+		dataManager.saveData(newsData)
+	finally:
+		newsDataMutex.release()
+
+	message = "Game with id '" + gameId + "' and name '" + name + "' has been registered."
 
 	await bot.send_message(bot.get_channel(newsChannel), message)
+	Thread(target = getNews, args = (name,)).start()
+
 
 
 ###############   TASKS   ########################
